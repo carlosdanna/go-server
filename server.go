@@ -43,7 +43,7 @@ func GetEmployees(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, string(format))
 }
 
-// Get group of employees from a mongoDB
+// Get a single employee by firstname from the database
 func GetEmployee(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Content-Type", "application/json")
