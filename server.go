@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,66 +10,50 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var employees []Employee = createTestEmployee()
-
-type emp struct {
+type Employee struct {
 	Firstname string
 	Lastname  string
 	Age       int
 }
 
 func hello(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Hello world!")
-}
-
-func GetEmployeesj(w http.ResponseWriter, r *http.Request) {
-	format, _ := json.Marshal(employees)
-	fmt.Println("Getting employees on JSON")
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
-	io.WriteString(w, string(format))
-}
-func GetEmployeesx(w http.ResponseWriter, r *http.Request) {
-	format, _ := xml.Marshal(employees)
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/xml")
-	fmt.Println("Getting employees on XML")
-	io.WriteString(w, string(format))
+	io.WriteString(w, "Hello world!, Yeah this is my first api call I am learning this stuff")
 }
 
 func GetEmployeesDB(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Content-Type", "application/json")
 	session, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
-	if err == nil {
-		c := session.DB("go-connect")
-		fmt.Println(c, "connected")
-	} else {
+	if err != nil {
 		fmt.Println("Error: ", err)
 	}
-	var e []emp
-	c := session.DB("go-connect").C("Employee")
 
+	var e []Employee
+	c := session.DB("go-connect").C("Employee")
 	query := c.Find(bson.M{}).All(&e)
-	session.DB("go-connect").C("Employee").Find(query)
-	fmt.Println(e)
+	defer session.DB("go-connect").C("Employee").Find(query)
+	session.Close()
+	format, _ := json.Marshal(e)
+	io.WriteString(w, string(format))
+
 }
 
 func PostEmployee(w http.ResponseWriter, r *http.Request) {
-	var e emp
+	var e Employee
 	// buff, _ := ioutil.ReadAll(r.Body)
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&e)
 	if err != nil {
 		panic(err)
 	}
-	// fmt.Print(string(buff))
-	fmt.Println(e)
-	format, _ := json.Marshal(e)
-	fmt.Println(string(format))
+
+	if e.Age < 18 {
+		http.Error(w, "The person you entered should be older than 18 years old", http.StatusBadRequest)
+		return
+	}
+
 	session, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
-	if err == nil {
-		c := session.DB("go-connect")
-		fmt.Println(c, "connected")
-	} else {
+	if err != nil {
 		fmt.Println("Error: ", err)
 	}
 	errInsert := session.DB("go-connect").C("Employee").Insert(e)
@@ -84,8 +67,6 @@ func PostEmployee(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	http.HandleFunc("/", hello)
-	http.HandleFunc("/getEmployeesj", GetEmployeesj)
-	http.HandleFunc("/getEmployeesx", GetEmployeesx)
 	http.HandleFunc("/postEmployee", PostEmployee)
 	http.HandleFunc("/getEmployeesDb", GetEmployeesDB)
 	http.ListenAndServe(":8000", nil)
