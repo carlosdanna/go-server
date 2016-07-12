@@ -16,17 +16,23 @@ type Employee struct {
 	Age       int
 }
 
-func hello(w http.ResponseWriter, r *http.Request) {
-	io.WriteString(w, "Hello world!, Yeah this is my first api call I am learning this stuff")
-}
-
-func GetEmployeesDB(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
+func DBConnect() *mgo.Session {
 	session, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
 	if err != nil {
 		fmt.Println("Error: ", err)
 	}
+	return session
+}
+
+func hello(w http.ResponseWriter, r *http.Request) {
+	io.WriteString(w, "Hello world!, Yeah this is my first api call I am learning this stuff")
+}
+
+// Get group of employees from a mongoDB
+func GetEmployees(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Content-Type", "application/json")
+	session := DBConnect()
 
 	var e []Employee
 	c := session.DB("go-connect").C("Employee")
@@ -35,12 +41,31 @@ func GetEmployeesDB(w http.ResponseWriter, r *http.Request) {
 	session.Close()
 	format, _ := json.Marshal(e)
 	io.WriteString(w, string(format))
-
 }
 
-func PostEmployee(w http.ResponseWriter, r *http.Request) {
+// Get group of employees from a mongoDB
+func GetEmployee(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Content-Type", "application/json")
+	session := DBConnect()
+
 	var e Employee
-	// buff, _ := ioutil.ReadAll(r.Body)
+	params := r.URL.Query()
+
+	c := session.DB("go-connect").C("Employee")
+	query := c.Find(bson.M{"firstname": params.Get("Firstname")}).One(&e)
+	defer session.DB("go-connect").C("Employee").Find(query)
+	session.Close()
+	format, _ := json.Marshal(e)
+	io.WriteString(w, string(format))
+}
+
+//Creates a new employee in the Db the employee has to be older that 18 years old
+//Otherwise it will send a bad request response
+func PostEmployee(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Access-Control-Allow-Origin", "*")
+	w.Header().Add("Content-Type", "application/json")
+	var e Employee
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&e)
 	if err != nil {
@@ -52,10 +77,7 @@ func PostEmployee(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
-	if err != nil {
-		fmt.Println("Error: ", err)
-	}
+	session := DBConnect()
 	errInsert := session.DB("go-connect").C("Employee").Insert(e)
 	if errInsert != nil {
 		panic(err)
@@ -68,6 +90,7 @@ func main() {
 
 	http.HandleFunc("/", hello)
 	http.HandleFunc("/postEmployee", PostEmployee)
-	http.HandleFunc("/getEmployeesDb", GetEmployeesDB)
+	http.HandleFunc("/getEmployees", GetEmployees)
+	http.HandleFunc("/getEmployee", GetEmployee)
 	http.ListenAndServe(":8000", nil)
 }
