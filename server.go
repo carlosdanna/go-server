@@ -28,6 +28,7 @@ func DBConnect() *mgo.Session {
 	return session
 }
 
+//set up the headers for the api calls
 func settingHeaders(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
