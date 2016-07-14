@@ -28,15 +28,20 @@ func DBConnect() *mgo.Session {
 	return session
 }
 
+func settingHeaders(fn http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Add("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Content-Type", "application/json")
+		fn(w, r)
+	}
+}
+
 func hello(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, "Hello world!, Yeah this is my first api call I am learning this stuff")
 }
 
 // Get group of employees from a mongoDB
 func GetEmployees(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
-
 	var e []Employee
 	c := session.DB("go-connect").C("Employee")
 	query := c.Find(bson.M{}).All(&e)
@@ -47,9 +52,6 @@ func GetEmployees(w http.ResponseWriter, r *http.Request) {
 
 // Get a single employee by firstname from the database
 func GetEmployee(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
-
 	var e Employee
 	params := r.URL.Query()
 
@@ -63,8 +65,6 @@ func GetEmployee(w http.ResponseWriter, r *http.Request) {
 //Creates a new employee in the Db the employee has to be older that 18 years old
 //Otherwise it will send a bad request response
 func PostEmployee(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
 	var e Employee
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&e)
@@ -84,8 +84,6 @@ func PostEmployee(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Access-Control-Allow-Origin", "*")
-	w.Header().Add("Content-Type", "application/json")
 	var e Employee
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&e)
@@ -108,9 +106,9 @@ func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	http.HandleFunc("/", hello)
-	http.HandleFunc("/postEmployee", PostEmployee)
-	http.HandleFunc("/getEmployees", GetEmployees)
-	http.HandleFunc("/getEmployee", GetEmployee)
-	http.HandleFunc("/updateEmployee", UpdateEmployee)
+	http.HandleFunc("/postEmployee", settingHeaders(PostEmployee))
+	http.HandleFunc("/getEmployees", settingHeaders(GetEmployees))
+	http.HandleFunc("/getEmployee", settingHeaders(GetEmployee))
+	http.HandleFunc("/updateEmployee", settingHeaders(UpdateEmployee))
 	http.ListenAndServe(":8000", nil)
 }
