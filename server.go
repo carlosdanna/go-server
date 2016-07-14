@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 )
@@ -15,6 +16,8 @@ type Employee struct {
 	Id        bson.ObjectId `bson:"_id,omitempty" json:"id"`
 	Firstname string        `json:"firstname"`
 	Lastname  string        `json:"lastname"`
+	Username  string        `json:"username"`
+	Password  string        `json:"pass"`
 	Age       int           `json:"age"`
 }
 
@@ -29,6 +32,7 @@ func DBConnect() *mgo.Session {
 }
 
 //set up the headers for the api calls
+//TODO: Check alice plugin for chain handlers
 func settingHeaders(fn http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Access-Control-Allow-Origin", "*")
@@ -63,8 +67,8 @@ func GetEmployee(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, string(format))
 }
 
-//Creates a new employee in the Db the employee has to be older that 18 years old
-//Otherwise it will send a bad request response
+// Creates a new employee in the Db the employee has to be older that 18 years old
+// Otherwise it will send a bad request response
 func PostEmployee(w http.ResponseWriter, r *http.Request) {
 	var e Employee
 	decoder := json.NewDecoder(r.Body)
@@ -106,10 +110,11 @@ func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", hello)
-	http.HandleFunc("/postEmployee", settingHeaders(PostEmployee))
-	http.HandleFunc("/getEmployees", settingHeaders(GetEmployees))
-	http.HandleFunc("/getEmployee", settingHeaders(GetEmployee))
-	http.HandleFunc("/updateEmployee", settingHeaders(UpdateEmployee))
-	http.ListenAndServe(":8000", nil)
+	r := mux.NewRouter()
+	r.HandleFunc("/", hello)
+	r.HandleFunc("/postEmployee", settingHeaders(PostEmployee)).Methods("POST")
+	r.HandleFunc("/getEmployees", settingHeaders(GetEmployees)).Methods("GET")
+	r.HandleFunc("/getEmployee", settingHeaders(GetEmployee)).Methods("GET")
+	r.HandleFunc("/updateEmployee", settingHeaders(UpdateEmployee)).Methods("POST")
+	http.ListenAndServe(":8000", r)
 }
