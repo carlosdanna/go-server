@@ -12,10 +12,10 @@ import (
 var session *mgo.Session = DBConnect()
 
 type Employee struct {
-	Id 			bson.ObjectId `bson:"_id,omitempty" json:"id"`
-	Firstname 	string	`json:"firstname"`
-	Lastname  	string	`json:"lastname"`
-	Age       	int		`json:"age"`
+	Id        bson.ObjectId `bson:"_id,omitempty" json:"id"`
+	Firstname string        `json:"firstname"`
+	Lastname  string        `json:"lastname"`
+	Age       int           `json:"age"`
 }
 
 func DBConnect() *mgo.Session {
@@ -83,7 +83,7 @@ func PostEmployee(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UpdateEmployee(w http.ResponseWriter, r *http.Request){
+func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Access-Control-Allow-Origin", "*")
 	w.Header().Add("Content-Type", "application/json")
 	var e Employee
@@ -91,6 +91,7 @@ func UpdateEmployee(w http.ResponseWriter, r *http.Request){
 	err := decoder.Decode(&e)
 	if err != nil {
 		http.Error(w, "Problems Decoding the information", http.StatusInternalServerError)
+		return
 	}
 
 	if e.Age < 18 {
@@ -101,6 +102,7 @@ func UpdateEmployee(w http.ResponseWriter, r *http.Request){
 	errUpdate := session.DB("go-connect").C("Employee").Update(bson.M{"_id": e.Id}, e)
 	if errUpdate != nil {
 		http.Error(w, "Problem updating data to the database", http.StatusInternalServerError)
+		return
 	}
 }
 
