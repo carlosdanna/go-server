@@ -10,25 +10,35 @@ import (
 	"gopkg.in/mgo.v2/bson"
 )
 
-var session *mgo.Session = DBConnect()
-
-type Employee struct {
-	Id        bson.ObjectId `bson:"_id,omitempty" json:"id"`
-	Firstname string        `json:"firstname"`
-	Lastname  string        `json:"lastname"`
-	Username  string        `json:"username"`
-	Password  string        `json:"pass"`
-	Age       int           `json:"age"`
+type MyServer struct {
+	mongo *mgo.Session
 }
 
-func DBConnect() *mgo.Session {
-	session, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
+type Employee struct {
+	Id        bson.ObjectId `bson:"_id,omitempty" json:"Id"`
+	Firstname string        `json:"Firstname"`
+	Lastname  string        `json:"Lastname"`
+	Username  string        `json:"Username"`
+	Password  string        `json:"Password"`
+	Age       int           `json:"Age"`
+}
+
+type Error struct {
+	Code    int    `json: "code"`
+	Message string `json: "messsage"`
+}
+
+func (s *MyServer) DBConnect() {
+	m, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
 
 	if err != nil {
 		var w http.ResponseWriter
-		http.Error(w, "Problems Initializing the database", http.StatusInternalServerError)
+		error := Error{1000, "Problems Initializing the database"}
+		format, _ := json.Marshal(error)
+		http.Error(w, string(format), http.StatusInternalServerError)
 	}
-	return session
+	s.mongo = m
+	return
 }
 
 //set up the headers for the api calls
@@ -46,75 +56,113 @@ func hello(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get group of employees from a mongoDB
-func GetEmployees(w http.ResponseWriter, r *http.Request) {
+func (s MyServer) GetEmployees(w http.ResponseWriter, r *http.Request) {
 	var e []Employee
-	c := session.DB("go-connect").C("Employee")
-	query := c.Find(bson.M{}).All(&e)
-	defer session.DB("go-connect").C("Employee").Find(query)
+
+	c := s.mongo.DB("go-connect").C("Employee")
+	err := c.Find(bson.M{}).All(&e)
+	if err != nil {
+		error := Error{1000, err.Error()}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, string(format))
+		return
+	}
 	format, _ := json.Marshal(e)
 	io.WriteString(w, string(format))
 }
 
 // Get a single employee by firstname from the database
-func GetEmployee(w http.ResponseWriter, r *http.Request) {
+func (s MyServer) GetEmployee(w http.ResponseWriter, r *http.Request) {
 	var e Employee
 	params := r.URL.Query()
 
-	c := session.DB("go-connect").C("Employee")
-	query := c.Find(bson.M{"firstname": params.Get("Firstname")}).One(&e)
-	defer session.DB("go-connect").C("Employee").Find(query)
+	c := s.mongo.DB("go-connect").C("Employee")
+	err := c.Find(bson.M{"firstname": params.Get("Firstname")}).One(&e)
+	if err != nil {
+		error := Error{1000, err.Error()}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, string(format))
+		return
+	}
 	format, _ := json.Marshal(e)
 	io.WriteString(w, string(format))
 }
 
 // Creates a new employee in the Db the employee has to be older that 18 years old
 // Otherwise it will send a bad request response
-func PostEmployee(w http.ResponseWriter, r *http.Request) {
+func (s MyServer) PostEmployee(w http.ResponseWriter, r *http.Request) {
 	var e Employee
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&e)
 	if err != nil {
-		http.Error(w, "Problems Decoding the information", http.StatusInternalServerError)
-	}
-
-	if e.Age < 18 {
-		http.Error(w, "The person you entered should be older than 18 years old", http.StatusBadRequest)
+		error := Error{1000, "Problems Decoding the information"}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, string(format))
 		return
 	}
 
-	errInsert := session.DB("go-connect").C("Employee").Insert(e)
+	if e.Age < 18 {
+		error := Error{1000, "The person you entered should be older than 18 years old"}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, string(format))
+		return
+	}
+
+	errInsert := s.mongo.DB("go-colnnect").C("Employee").Insert(e)
 	if errInsert != nil {
-		http.Error(w, "Problem inserting data to the database", http.StatusInternalServerError)
+		error := Error{1000, "Problem inserting data to the database"}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, string(format))
+		return
 	}
 }
 
-func UpdateEmployee(w http.ResponseWriter, r *http.Request) {
+func (s MyServer) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	var e Employee
 	decoder := json.NewDecoder(r.Body)
 	err := decoder.Decode(&e)
 	if err != nil {
-		http.Error(w, "Problems Decoding the information", http.StatusInternalServerError)
+		error := Error{1000, "Problems Decoding the information"}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, string(format))
 		return
 	}
 
 	if e.Age < 18 {
-		http.Error(w, "The person you entered should be older than 18 years old", http.StatusBadRequest)
+		error := Error{1000, "The person you entered should be older than 18 years old"}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusBadRequest)
+		io.WriteString(w, string(format))
 		return
 	}
 
-	errUpdate := session.DB("go-connect").C("Employee").Update(bson.M{"_id": e.Id}, e)
+	errUpdate := s.mongo.DB("go-connect").C("Employee").Update(bson.M{"_id": e.Id}, e)
 	if errUpdate != nil {
-		http.Error(w, "Problem updating data to the database", http.StatusInternalServerError)
+		error := Error{1000, "Problem updating data to the database"}
+		format, _ := json.Marshal(error)
+		w.WriteHeader(http.StatusInternalServerError)
+		io.WriteString(w, string(format))
 		return
 	}
+
 }
 
 func main() {
 	r := mux.NewRouter()
+
+	var s MyServer
+	s.DBConnect()
+
 	r.HandleFunc("/", hello)
-	r.HandleFunc("/postEmployee", settingHeaders(PostEmployee)).Methods("POST")
-	r.HandleFunc("/getEmployees", settingHeaders(GetEmployees)).Methods("GET")
-	r.HandleFunc("/getEmployee", settingHeaders(GetEmployee)).Methods("GET")
-	r.HandleFunc("/updateEmployee", settingHeaders(UpdateEmployee)).Methods("POST")
+	r.HandleFunc("/getEmployees", settingHeaders(s.GetEmployees)).Methods("GET")
+	r.HandleFunc("/getEmployee", settingHeaders(s.GetEmployee)).Methods("GET")
+	r.HandleFunc("/postEmployee", settingHeaders(s.PostEmployee)).Methods("POST")
+	r.HandleFunc("/updateEmployee", settingHeaders(s.UpdateEmployee)).Methods("POST")
 	http.ListenAndServe(":8000", r)
 }
