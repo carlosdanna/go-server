@@ -11,7 +11,7 @@ import (
 )
 
 type MyServer struct {
-	mongo *mgo.Session
+	Mongo *mgo.Session
 }
 
 type Employee struct {
@@ -28,6 +28,12 @@ type Error struct {
 	Message string `json: "messsage"`
 }
 
+func (e Error) SendError(w http.ResponseWriter, status int) {
+	format, _ := json.Marshal(e)
+	w.WriteHeader(status)
+	io.WriteString(w, string(format))
+}
+
 func (s *MyServer) DBConnect() {
 	m, err := mgo.Dial("mongodb://admin:password@ds027809.mlab.com:27809/go-connect")
 
@@ -37,7 +43,7 @@ func (s *MyServer) DBConnect() {
 		format, _ := json.Marshal(error)
 		http.Error(w, string(format), http.StatusInternalServerError)
 	}
-	s.mongo = m
+	s.Mongo = m
 	return
 }
 
@@ -59,13 +65,11 @@ func hello(w http.ResponseWriter, r *http.Request) {
 func (s MyServer) GetEmployees(w http.ResponseWriter, r *http.Request) {
 	var e []Employee
 
-	c := s.mongo.DB("go-connect").C("Employee")
+	c := s.Mongo.DB("go-connect").C("Employee")
 	err := c.Find(bson.M{}).All(&e)
 	if err != nil {
 		error := Error{1000, err.Error()}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusInternalServerError)
 		return
 	}
 	format, _ := json.Marshal(e)
@@ -77,13 +81,11 @@ func (s MyServer) GetEmployee(w http.ResponseWriter, r *http.Request) {
 	var e Employee
 	params := r.URL.Query()
 
-	c := s.mongo.DB("go-connect").C("Employee")
+	c := s.Mongo.DB("go-connect").C("Employee")
 	err := c.Find(bson.M{"firstname": params.Get("Firstname")}).One(&e)
 	if err != nil {
 		error := Error{1000, err.Error()}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusInternalServerError)
 		return
 	}
 	format, _ := json.Marshal(e)
@@ -98,26 +100,20 @@ func (s MyServer) PostEmployee(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&e)
 	if err != nil {
 		error := Error{1000, "Problems Decoding the information"}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusInternalServerError)
 		return
 	}
 
 	if e.Age < 18 {
 		error := Error{1000, "The person you entered should be older than 18 years old"}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusBadRequest)
 		return
 	}
 
-	errInsert := s.mongo.DB("go-colnnect").C("Employee").Insert(e)
+	errInsert := s.Mongo.DB("go-colnnect").C("Employee").Insert(e)
 	if errInsert != nil {
 		error := Error{1000, "Problem inserting data to the database"}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusInternalServerError)
 		return
 	}
 }
@@ -128,26 +124,20 @@ func (s MyServer) UpdateEmployee(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&e)
 	if err != nil {
 		error := Error{1000, "Problems Decoding the information"}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusInternalServerError)
 		return
 	}
 
 	if e.Age < 18 {
 		error := Error{1000, "The person you entered should be older than 18 years old"}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusBadRequest)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusBadRequest)
 		return
 	}
 
-	errUpdate := s.mongo.DB("go-connect").C("Employee").Update(bson.M{"_id": e.Id}, e)
+	errUpdate := s.Mongo.DB("go-connect").C("Employee").Update(bson.M{"_id": e.Id}, e)
 	if errUpdate != nil {
 		error := Error{1000, "Problem updating data to the database"}
-		format, _ := json.Marshal(error)
-		w.WriteHeader(http.StatusInternalServerError)
-		io.WriteString(w, string(format))
+		error.SendError(w, http.StatusInternalServerError)
 		return
 	}
 
